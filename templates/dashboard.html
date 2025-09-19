@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Traffic - User Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 20px; background: #0f1720; color: #e6eef6; }
+        .header { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .sos-section { background: linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(255,255,255,0.03)); padding: 30px; border-radius: 8px; text-align: center; border: 1px solid rgba(255, 23, 68, 0.3); margin-bottom: 20px; }
+        .connection-status { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+        .connected { background: rgba(22, 163, 74, 0.2); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3); }
+        .disconnected { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .testing { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .sos-button { background: #ff1744; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 50px; cursor: pointer; margin: 10px; animation: pulse 2s infinite; }
+        .sos-button:hover { background: #d50000; transform: scale(1.05); }
+        .sos-button:disabled { background: #666; cursor: not-allowed; transform: none; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.02); } }
+        .input-group { margin: 10px 0; }
+        .form-input { padding: 12px; margin: 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(255,255,255,0.1); color: #e6eef6; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 4px; }
+        .status-success { background: rgba(22, 163, 74, 0.2); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3); }
+        .status-error { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .info-box { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-test { background: #60a5fa; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn-logout { background: #6c757d; color: white; padding: 8px 16px; border: none; border-radius: 4px; text-decoration: none; }
+        h1, h2 { color: #2dd4bf; }
+        .method-indicator { font-size: 12px; padding: 4px 8px; border-radius: 12px; background: rgba(96, 165, 250, 0.2); color: #60a5fa; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚦 Smart Traffic Emergency System</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <p>Welcome, <strong>{{ username }}</strong>!</p>
+            <div>
+                <button class="btn-test" id="testBtn">Test Connection</button>
+                <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="connection-status testing" id="connectionStatus">
+        🔌 Testing connection to emergency services...
+    </div>
+    
+    <div class="sos-section">
+        <h2>🚨 Emergency SOS</h2>
+        <p>Press the button below in case of traffic emergency</p>
+        
+        <div class="input-group">
+            <input type="text" id="location" class="form-input" placeholder="Your Location (optional)" style="width: 200px;">
+            <input type="text" id="phone" class="form-input" placeholder="Phone Number (optional)" style="width: 150px;">
+        </div>
+        
+        <div class="input-group">
+            <select id="emergency-type" class="form-input" style="width: 250px;">
+                <option value="Traffic Accident">🚗 Traffic Accident</option>
+                <option value="Medical Emergency">🏥 Medical Emergency</option>
+                <option value="Vehicle Breakdown">🔧 Vehicle Breakdown</option>
+                <option value="Road Blockage">🚧 Road Blockage</option>
+                <option value="Fire Emergency">🔥 Fire Emergency</option>
+                <option value="General Emergency">🚨 General Emergency</option>
+            </select>
+        </div>
+        
+        <br>
+        <button id="sosButton" class="sos-button">🆘 SEND SOS</button>
+        
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="info-box">
+        <h3 style="margin: 0 0 10px; color: #2dd4bf;">ℹ️ How it works:</h3>
+        <p style="margin: 5px 0; font-size: 14px;">1. Fill in your location and emergency type</p>
+        <p style="margin: 5px 0; font-size: 14px;">2. Press the SOS button to alert traffic control</p>
+        <p style="margin: 5px 0; font-size: 14px;">3. Emergency protocols activate automatically</p>
+        <p style="margin: 5px 0; font-size: 14px;">4. Traffic signals prioritize emergency vehicles</p>
+    </div>
+
+    <div class="info-box">
+        <h3 style="margin: 0 0 10px; color: #f59e0b;">⚙️ Connection Methods:</h3>
+        <p style="margin: 3px 0; font-size: 13px;">🔄 <strong>Real-time:</strong> Instant SocketIO connection</p>
+        <p style="margin: 3px 0; font-size: 13px;">📡 <strong>API:</strong> HTTP REST API fallback</p>
+        <p style="margin: 3px 0; font-size: 13px;">📤 <strong>Backup:</strong> Simple POST request</p>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const sosButton = document.getElementById('sosButton');
+        const statusDiv = document.getElementById('status');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const testBtn = document.getElementById('testBtn');
+        
+        // Test connection on load
+        window.addEventListener('load', testConnection);
+        
+        // Test connection function
+        function testConnection() {
+            connectionStatus.textContent = '🔄 Testing connection...';
+            connectionStatus.className = 'connection-status testing';
+            
+            fetch('/api/test-connection')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        connectionStatus.textContent = '✅ Connected to emergency services';
+                        connectionStatus.className = 'connection-status connected';
+                        sosButton.disabled = false;
+                    } else {
+                        connectionStatus.textContent = '❌ Cannot reach emergency services: ' + data.message;
+                        connectionStatus.className = 'connection-status disconnected';
+                        sosButton.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    connectionStatus.textContent = '❌ Connection test failed: ' + error.message;
+                    connectionStatus.className = 'connection-status disconnected';
+                    sosButton.disabled = true;
+                });
+        }
+        
+        // Test button click
+        testBtn.addEventListener('click', testConnection);
+        
+        // Socket connection events
+        socket.on('connect', function() {
+            console.log('Socket connected to user app');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Socket disconnected from user app');
+        });
+        
+        // SOS button click
+        sosButton.addEventListener('click', function() {
+            const location = document.getElementById('location').value || 'Location not provided';
+            const phone = document.getElementById('phone').value || 'Not provided';
+            const emergencyType = document.getElementById('emergency-type').value;
+            
+            if (confirm(`🚨 SEND EMERGENCY SIGNAL?\n\nType: ${emergencyType}\nLocation: ${location}\nPhone: ${phone}\n\nThis will alert traffic control immediately!`)) {
+                sosButton.disabled = true;
+                sosButton.innerHTML = '📡 Sending SOS...';
+                statusDiv.style.display = 'none';
+                
+                // Get user's coordinates if available
+                let coordinates = 'Unknown';
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            coordinates = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+                            sendSOS();
+                        },
+                        function(error) {
+                            console.log('Geolocation error:', error);
+                            sendSOS();
+                        }
+                    );
+                } else {
+                    sendSOS();
+                }
+                
+                function sendSOS() {
+                    socket.emit('send_sos', {
+                        location: location,
+                        type: emergencyType,
+                        phone: phone,
+                        coordinates: coordinates
+                    });
+                }
+            }
+        });
+        
+        // Handle SOS response
+        socket.on('sos_sent', function(data) {
+            statusDiv.style.display = 'block';
+            
+            if (data.status === 'success') {
+                statusDiv.className = 'status status-success';
+                statusDiv.innerHTML = `✅ ${data.message}` + 
+                    (data.method ? `<span class="method-indicator">${data.method}</span>` : '') +
+                    '<br>🚦 Traffic control has been notified!' +
+                    '<br>🚑 Emergency services are being alerted!';
+                
+                // Success animation
+                sosButton.style.background = '#16a34a';
+                sosButton.innerHTML = '✅ SOS SENT!';
+                
+                // Play success sound
+                try {
+                    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmUfCEGm4vGkXQsJVKrhybpYGw1Am9z1t2+5');
+                    audio.play();
+                } catch (e) {
+                    console.log('Audio not available');
+                }
+                
+                // Reset after 15 seconds
+                setTimeout(() => {
+                    sosButton.disabled = false;
+                    sosButton.innerHTML = '🆘 SEND SOS';
+                    sosButton.style.background = '#ff1744';
+                    statusDiv.style.display = 'none';
+                }, 15000);
+                
+            } else {
+                statusDiv.className = 'status status-error';
+                statusDiv.innerHTML = `❌ ${data.message}` + 
+                    '<br>📞 Please try again or contact emergency services directly at 911';
+                
+                if (data.details) {
+                    statusDiv.innerHTML += '<br><small>Technical details: ' + data.details.join(', ') + '</small>';
+                }
+                
+                // Reset button immediately on error
+                sosButton.disabled = false;
+                sosButton.innerHTML = '🆘 SEND SOS';
+                
+                // Hide after 10 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 10000);
+            }
+        });
+        // Add this to your existing dashboard.html <script> section
+
+// **Database-driven SOS status monitoring**
+let activeSOS = null;
+let statusPolling = null;
+
+// Modified SOS button handler
+sosButton.addEventListener('click', function() {
+    const location = document.getElementById('location').value || 'Location not provided';
+    const phone = document.getElementById('phone').value || 'Not provided';
+    const emergencyType = document.getElementById('emergency-type').value;
+    
+    if (confirm(`SEND EMERGENCY SIGNAL?\n\nType: ${emergencyType}\nLocation: ${location}\nPhone: ${phone}\n\nThis will alert traffic control immediately!`)) {
+        sosButton.disabled = true;
+        sosButton.innerHTML = '🚨 Sending SOS...';
+        statusDiv.style.display = 'none';
+        
+        // Get coordinates and send SOS
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const coordinates = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+                    sendSOSToDatabase(location, emergencyType, phone, coordinates);
+                },
+                function(error) {
+                    sendSOSToDatabase(location, emergencyType, phone, 'Unknown');
+                }
+            );
+        } else {
+            sendSOSToDatabase(location, emergencyType, phone, 'Unknown');
+        }
+    }
+});
+
+function sendSOSToDatabase(location, type, phone, coordinates) {
+    socket.emit('send_sos', {
+        location: location,
+        type: type,
+        phone: phone,
+        coordinates: coordinates
+    });
+}
+
+// Handle SOS response from database
+socket.on('sos_sent', function(data) {
+    statusDiv.style.display = 'block';
+    
+    if (data.status === 'success') {
+        activeSOS = data.sos_id;
+        statusDiv.className = 'status status-success';
+        statusDiv.innerHTML = `✅ ${data.message}<br>🔍 Waiting for admin approval...<br>📊 Tracking ID: ${data.sos_id.substring(0, 8)}`;
+        
+        sosButton.style.background = '#f59e0b';
+        sosButton.innerHTML = '⏳ WAITING FOR APPROVAL';
+        
+        // Start polling for status updates
+        startStatusPolling();
+        
+    } else {
+        statusDiv.className = 'status status-error';
+        statusDiv.innerHTML = `❌ ${data.message}`;
+        sosButton.disabled = false;
+        sosButton.innerHTML = '🆘 SEND SOS';
+    }
+});
+
+function startStatusPolling() {
+    if (statusPolling) {
+        clearInterval(statusPolling);
+    }
+    
+    statusPolling = setInterval(() => {
+        if (activeSOS) {
+            fetch(`/api/sos-status/${activeSOS}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateSOSStatus(data.data);
+                    }
+                })
+                .catch(error => console.error('Status polling error:', error));
+        }
+    }, 2000); // Poll every 2 seconds
+}
+
+function updateSOSStatus(sosData) {
+    switch(sosData.status) {
+        case 'pending':
+            statusDiv.innerHTML = `⏳ Waiting for admin approval...<br>📊 ID: ${sosData.id.substring(0, 8)}<br>🕐 Sent: ${new Date(sosData.created_at).toLocaleTimeString()}`;
+            break;
+            
+        case 'approved':
+            statusDiv.className = 'status status-success';
+            statusDiv.innerHTML = `✅ APPROVED! Green signal activated<br>🚦 Emergency lane is now active<br>⏱️ Signal duration: 30 seconds`;
+            sosButton.style.background = '#16a34a';
+            sosButton.innerHTML = '✅ EMERGENCY ACTIVE';
+            
+            // Show countdown
+            if (sosData.activated_at) {
+                startSignalCountdown();
+            }
+            break;
+            
+        case 'completed':
+            statusDiv.innerHTML = `✅ Emergency completed<br>🔄 Traffic returned to normal<br>✨ Thank you for using emergency services`;
+            
+            // Reset after delay
+            setTimeout(() => {
+                resetSOSButton();
+            }, 5000);
+            break;
+            
+        case 'rejected':
+            statusDiv.className = 'status status-error';
+            statusDiv.innerHTML = `❌ Emergency request was rejected<br>📞 Please contact 911 directly if needed`;
+            resetSOSButton();
+            break;
+    }
+}
+
+function startSignalCountdown() {
+    let countdown = 30;
+    const countdownInterval = setInterval(() => {
+        if (countdown > 0) {
+            sosButton.innerHTML = `🟢 GREEN SIGNAL ACTIVE (${countdown}s)`;
+            countdown--;
+        } else {
+            clearInterval(countdownInterval);
+            sosButton.innerHTML = '🔄 Signal Complete';
+        }
+    }, 1000);
+}
+
+function resetSOSButton() {
+    activeSOS = null;
+    sosButton.disabled = false;
+    sosButton.innerHTML = '🆘 SEND SOS';
+    sosButton.style.background = '#ff1744';
+    statusDiv.style.display = 'none';
+    
+    if (statusPolling) {
+        clearInterval(statusPolling);
+        statusPolling = null;
+    }
+}
+
+    </script>
+</body>
+</html>
